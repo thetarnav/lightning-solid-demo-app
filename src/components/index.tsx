@@ -10,6 +10,7 @@ import { createSignal, For, Index } from "solid-js";
 import styles, { buttonStyles } from "../styles";
 import { type Tile } from "../api/formatters/ItemFormatter";
 import { LazyRow } from "@lightningtv/solid/primitives";
+import * as tmdb from "../api/tmdbData"
 
 export function Thumbnail(props: IntrinsicNodeProps & { item: Tile }) {
   return <View {...props} src={props.item.src} item={props.item} style={styles.Thumbnail} />;
@@ -85,7 +86,7 @@ const posterStyles = {
   $focus: { scale: 1.1, color: "#fff" },
 };
 
-export function Poster(props: NodeProps) {
+export function Poster(props: NodeProps & {item: tmdb.Movie | undefined}) {
   return (
     <View
       src={props.item?.src}
@@ -118,7 +119,7 @@ const posterTitleStyles = {
   },
 } as const;
 
-export function PosterTitle(props: NodeProps & { title: string }) {
+export function PosterTitle(props: NodeProps & {item: tmdb.Movie | undefined}) {
   return (
     <View
       src={props.item?.src}

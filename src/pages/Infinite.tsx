@@ -1,56 +1,90 @@
-import { createEffect, createSignal, Show } from "solid-js";
-import { ElementNode, View, Text } from "@lightningtv/solid";
+import { createMemo, createSignal, For, Show, Accessor, Setter, createEffect, createComputed, onCleanup } from "solid-js";
+import { ElementNode, View, Text, ElementText, AnimationSettings } from "@lightningtv/solid";
 import { Poster } from "../components";
 import { setGlobalBackground } from "../state";
 import { List } from "@solid-primitives/list";
+import * as tmdb from "../api/tmdbData";
 
-const Loops = (props) => {
-  const [allItems, setAllItems] = createSignal<any[]>([]);
-  const [displayedItems, setDisplayedItems] = createSignal<any[]>([]);
+export type Item = tmdb.Movie | undefined
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function createSlice<T>(
+  allItems:      Accessor<T[]>,
+  displayedSize: Accessor<number>,
+  bufferSize:    Accessor<number>,
+  initialCursor: number = 0,
+) {
+  const [cursor, setCursorRaw] = createSignal(initialCursor)
+  const fromIndex = createMemo(() => Math.max(0, cursor()-bufferSize()))
+  const toIndex = createMemo(() => Math.min(allItems().length-1, cursor()+displayedSize()+bufferSize()))
+  const items = createMemo(() => allItems().slice(fromIndex(), toIndex()))
+  const setCursor = (setter: number | ((prev: number) => number)): number =>
+    setCursorRaw(
+      cursor => clamp(typeof setter === 'function' ? setter(cursor) : setter, 0, allItems().length-1 - displayedSize())
+    )
+  return {cursor, setCursor, fromIndex, toIndex, items}
+}
+
+const Loops = (props: {data: tmdb.TMDBData}) => {
+  const allItems = createMemo((): Item[] => props.data.rows.map((row) => row.items()).flat())
   const [resetCounter, setResetCounter] = createSignal(1);
   const displaySize = 5;
   const bufferSize = 2; // Number of items to load ahead
-  let currentIndex = 0, solidLogo;
+  const itemsSlice = createSlice(
+    allItems,
+    () => displaySize,
+    () => bufferSize,
+  )
+  let solidLogo;
 
-  createEffect(() => {
-    // Flatten all rows into a single array, add empty item for initial offscreen item
-    const all = [{}, ...props.data.rows.map((row) => row.items()).flat()];
-    setAllItems(all);
-    setDisplayedItems(all.slice(0, displaySize + bufferSize));
-  });
+  const speed = 0.2
+  const [animationCursor, setAnimationCursor] = createSignal(0)
 
-  function updateDisplayedItems() {
-    const items = allItems();
-    const start = Math.max(currentIndex, 0);
-    const end = Math.min(currentIndex + displaySize + bufferSize, items.length);
-    setDisplayedItems(items.slice(start, end));
+  function frame() {
+
+    let target = itemsSlice.cursor()
+    let current = animationCursor()
+    if (target < current) {
+      current = Math.max(target, current + speed * (target-current))
+    } else {
+      current = Math.min(target, current + speed * (target-current))
+    }
+    setAnimationCursor(current)
+
+    raf = requestAnimationFrame(frame)
   }
+  let raf = requestAnimationFrame(frame)
+  onCleanup(() => cancelAnimationFrame(raf))
 
-  function reset(_e, elm) {
-    currentIndex = 0;
+  function reset(_e, elm: ElementNode) {
     setResetCounter(r => r + 1);
-    updateDisplayedItems();
+    itemsSlice.setCursor(0);
     elm.children[1].setFocus();
     return true;
   }
 
-  function shiftLeft(_e, elm) {
-    if (currentIndex > 0) {
-      currentIndex = Math.max(0, currentIndex - 1);
-      elm.children[0].setFocus();
-      updateDisplayedItems();
-    }
-    return true;
+  function shiftLeft(_e, elm: ElementNode) {
+    let isLeft = itemsSlice.cursor() === 0
+    itemsSlice.setCursor(p => p - 1)
+    return !isLeft;
   }
 
-  function shiftRight(_e, elm) {
-    if (currentIndex < allItems().length - 1) {
-      currentIndex = Math.min(allItems().length - 1, currentIndex + 1);
-      elm.children[2].setFocus();
-      updateDisplayedItems();
-    }
+  function shiftRight(_e, elm: ElementNode) {
+    itemsSlice.setCursor(p => p + 1)
     return true;
   }
+  
+  createEffect((prev: ElementNode | ElementText | undefined) => {
+    itemsSlice.items() // view.children has an implicit dependency on items
+    let item = view.children[Math.min(itemsSlice.cursor(), bufferSize)]
+    if (item != null && item !== prev) {
+      item.setFocus()
+    }
+    return item
+  })
 
   function animateOut(node) {
     return node
@@ -77,8 +111,12 @@ const Loops = (props) => {
     lineHeight: 32,
   };
 
-  const withTransition = { x: { duration: 250 }, alpha: { duration: 250 } };
+  // x is animated with animationCursor
+  const withTransition: Record<string, boolean | AnimationSettings>
+    // = { x: { duration: 250 }, alpha: { duration: 250 } };
+    = { alpha: { duration: 250 } };
 
+  let view!: ElementNode
   return (
     <>
       <View ref={solidLogo} width={300} height={150} x={162} y={80} zIndex={105}>
@@ -95,24 +133,27 @@ const Loops = (props) => {
       <View x={160} y={300} height={300}>
         <Text style={titleRowStyles}>Infinite Item List</Text>
         <Show when={resetCounter()} keyed>
-        <View autofocus={allItems()} onDestroy={animateOut}
-          onCreate={animateIn} 
-          onFocus={(elm) => elm.children[1]?.setFocus()} 
-          onLeft={shiftLeft} onRight={shiftRight} onUp={reset} onDown={reset} y={55}>
-          <List each={displayedItems()}>
-            {(item, index) => {
-              const isEdgeItem = () => index() === 0 || index() === displayedItems().length - 1;
-              return (
-                <Poster
-                  {...item()}
-                  x={index() * 210 - 210}
-                  alpha={isEdgeItem() ? 0 : 1}
-                  transition={withTransition}
-                />
-              );
-            }}
-          </List>
-        </View>
+          <View
+            ref={view}
+            onDestroy={animateOut}
+            onCreate={animateIn}
+            onFocus={(elm) => elm.children[1]?.setFocus()}
+            onLeft={shiftLeft} onRight={shiftRight} onUp={reset} onDown={reset} y={55}>
+            <List each={itemsSlice.items()}>
+              {(item, index) => {
+                const isEdgeItem = () => index() < Math.min(itemsSlice.cursor(), bufferSize)
+                                                || index() >= bufferSize+displaySize
+                return (
+                  <Poster
+                    item={item()}
+                    x={(index()-(animationCursor()-itemsSlice.fromIndex())) * 210}
+                    alpha={isEdgeItem() ? 0 : 1}
+                    transition={withTransition}
+                  />
+                );
+              }}
+            </List>
+          </View>
         </Show>
       </View>
     </>

@@ -1,6 +1,6 @@
 import api from ".";
 import { convertItemsToTiles } from "./formatters/ItemFormatter";
-import { createResource, createSignal } from "solid-js";
+import { createResource, Setter, Resource } from "solid-js";
 
 const handleResults = (response) => {
   return response.then(({ results }) => {
@@ -30,13 +30,55 @@ const fetchGenreMovies = (genres) => {
   });
 };
 
-type RowItem = {
-    title: string;
-    items: any;
-    setItems?: any;
-    type: "Poster" | "Hero" | "PosterTitle";
-    height: number;
+export type EntityInfo = {
+  type: string
+  id:   number
+}
+
+export type HeroContent = {
+  title:       string
+  description: string
+}
+
+export type Item = {
+  id:                number
+  name:              string
+  first_air_date:    string
+  adult:             boolean
+  backdrop_path:     string
+  genre_ids:         number[]
+  origin_country:    string[]
+  original_language: string
+  original_name:     string
+  overview:          string
+  popularity:        number
+  poster_path:       string
+  vote_average:      number
+  vote_count:        number
+}
+
+export type Movie = {
+  src:         string
+  tileSrc:     string
+  title:       string
+  shortTitle:  string
+  overview:    string
+  backdrop:    string
+  href:        string
+  entityInfo:  EntityInfo
+  item:        Item
+  heroContent: HeroContent
+}
+
+export type RowItem = {
+  title: string;
+  items: Resource<Movie>;
+  setItems?: Setter<Movie>;
+  type: "Poster" | "Hero" | "PosterTitle";
+  height: number;
 };
+
+export type TMDBData = {rows: RowItem[]}
 
 export function destroyData() {
   const heroRow = {
@@ -50,7 +92,7 @@ export function destroyData() {
     heroRow,
   };
 }
-export function tmdbData() {
+export function tmdbData(): TMDBData {
   const rows: RowItem[] = [];
   const popularMovies = createResource(() => fetchPopular("movie"));
   rows.push({
