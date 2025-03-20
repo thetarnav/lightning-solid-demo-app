@@ -19,8 +19,8 @@ function createSlice<T>(
 ) {
   const [cursor, setCursorRaw] = createSignal(initialCursor)
   const fromIndex = createMemo(() => Math.max(0, cursor()-bufferSize()))
-  const toIndex = createMemo(() => Math.min(allItems().length-1, cursor()+displayedSize()+bufferSize()))
-  const items = createMemo(() => allItems().slice(fromIndex(), toIndex()))
+  const toIndex   = createMemo(() => Math.min(allItems().length-1, cursor()+displayedSize()+bufferSize()))
+  const items     = createMemo(() => allItems().slice(fromIndex(), toIndex()))
   const setCursor = (setter: number | ((prev: number) => number)): number =>
     setCursorRaw(
       cursor => clamp(typeof setter === 'function' ? setter(cursor) : setter, 0, allItems().length-1 - displayedSize())
@@ -28,7 +28,7 @@ function createSlice<T>(
   return {cursor, setCursor, fromIndex, toIndex, items}
 }
 
-const Loops = (props: {data: tmdb.TMDBData}) => {
+export default function Loops(props: {data: tmdb.TMDBData}) {
 
   const displaySize = 5
   const bufferSize  = 2 // Number of items to load ahead on each side
@@ -130,8 +130,7 @@ const Loops = (props: {data: tmdb.TMDBData}) => {
         <Show when={resetCounter()} keyed>
           <View
             ref={view}
-            onDestroy={animateOut}
-            onCreate={animateIn}
+            onCreate={animateIn} onDestroy={animateOut}
             onFocus={(elm) => elm.children[1]?.setFocus()}
             onLeft={shiftLeft} onRight={shiftRight} onUp={reset} onDown={reset}
             y={55}
@@ -154,5 +153,3 @@ const Loops = (props: {data: tmdb.TMDBData}) => {
     </>
   );
 };
-
-export default Loops;
