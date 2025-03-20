@@ -18,25 +18,28 @@ function createSlice<T>(
   initialCursor: number = 0,
 ) {
   const [cursor, setCursorRaw] = createSignal(initialCursor)
-  const fromIndex = createMemo(() => clamp(cursor()-bufferSize(), 0, allItems().length-1-displayedSize()-bufferSize()))
-  const toIndex   = createMemo(() => Math.min(allItems().length-1, cursor()+displayedSize()+bufferSize()))
-  const items     = createMemo(() => allItems().slice(fromIndex(), toIndex()))
+  const start     = createMemo(() => clamp(cursor()-bufferSize(), 0, allItems().length-displayedSize()-bufferSize()))
+  const end       = createMemo(() => Math.min(allItems().length, cursor()+displayedSize()+bufferSize()))
+  const items     = createMemo(() => allItems().slice(start(), end()))
   const setCursor = (setter: number | ((prev: number) => number)): number =>
     setCursorRaw(
-      cursor => clamp(typeof setter === 'function' ? setter(cursor) : setter, 0, allItems().length-1-1)
+      cursor => clamp(typeof setter === 'function' ? setter(cursor) : setter, 0, allItems().length-1)
     )
-  return {cursor, setCursor, fromIndex, toIndex, items}
+  return {cursor, setCursor, start, end, items}
 }
 
 export default function Infinite(props: {data: tmdb.TMDBData}) {
-
-  const allItems = createMemo((): Item[] => props.data.rows.map((row) => row.items()).flat().slice(0, 26))
 
   setGlobalBackground("#000000");
 
   const displaySize = 5
   const bufferSize  = 2 // Number of items to load ahead on each side
   const animSpeed   = 0.16
+  const maxItems    = 20
+
+  const allItems = createMemo(
+    (): Item[] => props.data.rows.map((row) => row.items()).flat().slice(0, maxItems)
+  )
 
   const [resetTrack, resetTrigger] = createSignal(undefined, {equals: false});
 
@@ -114,7 +117,7 @@ export default function Infinite(props: {data: tmdb.TMDBData}) {
         /* Focus cursor item */
         createEffect((prev: ElementNode | ElementText | undefined) => {
           itemsSlice.items() // view.children has an implicit dependency on items
-          let item = view.children[itemsSlice.cursor()-itemsSlice.fromIndex()]
+          let item = view.children[itemsSlice.cursor()-itemsSlice.start()]
           if (item != null && item !== prev) {
             item.setFocus()
           }
@@ -132,7 +135,8 @@ export default function Infinite(props: {data: tmdb.TMDBData}) {
           >
             <List each={itemsSlice.items()}>
               {(item, index) => {
-                const normalIndex = () => index() - Math.min(animCursor(), allItems().length-1-displaySize) + itemsSlice.fromIndex()
+                const normalIndex = () =>
+                  index() - Math.min(animCursor(), allItems().length-displaySize) + itemsSlice.start()
                 return <>
                   <Poster
                     item={item()}
