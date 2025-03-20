@@ -1,4 +1,4 @@
-import { createMemo, createSignal, Show, Accessor, createEffect, onCleanup, batch } from "solid-js";
+import { createMemo, createSignal, Accessor, createEffect, onCleanup } from "solid-js";
 import { ElementNode, View, Text, ElementText } from "@lightningtv/solid";
 import { Poster } from "../components";
 import { setGlobalBackground } from "../state";
@@ -28,72 +28,31 @@ function createSlice<T>(
   return {cursor, setCursor, fromIndex, toIndex, items}
 }
 
-export default function Loops(props: {data: tmdb.TMDBData}) {
+export default function Infinite(props: {data: tmdb.TMDBData}) {
+
+  const allItems = createMemo((): Item[] => props.data.rows.map((row) => row.items()).flat())
+
+  setGlobalBackground("#000000");
 
   const displaySize = 5
   const bufferSize  = 2 // Number of items to load ahead on each side
   const animSpeed   = 0.16
 
-  const allItems = createMemo((): Item[] => props.data.rows.map((row) => row.items()).flat())
-  const itemsSlice = createSlice(
-    allItems,
-    () => displaySize,
-    () => bufferSize,
-  )
-  
-  const [resetCounter, setResetCounter] = createSignal(1);
-  
-  let solidLogo;
-  
-  const [animCursor, setAnimCursor] = createSignal(0)
-  function frame() {
-    let goal = itemsSlice.cursor()
-    let curr = animCursor()
-    let next = curr + animSpeed * (goal-curr)
-    setAnimCursor(goal < curr ? Math.max(goal, next) : Math.min(goal, next))
-
-    raf = requestAnimationFrame(frame)
-  }
-  let raf = requestAnimationFrame(frame)
-  onCleanup(() => cancelAnimationFrame(raf))
+  const [resetTrack, resetTrigger] = createSignal(undefined, {equals: false});
 
   function reset() {
-    batch(() => {
-      setResetCounter(r => r + 1);
-      itemsSlice.setCursor(0);
-    })
-    return true;
+    resetTrigger()
+    return true
   }
 
-  function shiftLeft() {
-    let isFirst = itemsSlice.cursor() === 0
-    itemsSlice.setCursor(p => p - 1)
-    return !isFirst;
-  }
-
-  function shiftRight() {
-    itemsSlice.setCursor(p => p + 1)
-    return true;
-  }
-  
-  /* Focus cursor item */
-  createEffect((prev: ElementNode | ElementText | undefined) => {
-    itemsSlice.items() // view.children has an implicit dependency on items
-    let item = view.children[Math.min(itemsSlice.cursor(), bufferSize)]
-    if (item != null && item !== prev) {
-      item.setFocus()
-    }
-    return item
-  })
-
-  function animateOut(node) {
+  function animateOut(node: ElementNode) {
     return node
       .animate({ y: 200, alpha: 0 }, { duration: 500, easing: "ease-in-out" })
       .start()
       .waitUntilStopped();
   }
 
-  function animateIn(node) {
+  function animateIn(node: ElementNode) {
     node.alpha = 0;
     node.y = -100;
     return node
@@ -102,8 +61,6 @@ export default function Loops(props: {data: tmdb.TMDBData}) {
       .waitUntilStopped();
   }
 
-  setGlobalBackground("#000000");
-
   const titleRowStyles = {
     fontFamily: "Raleway",
     fontSize: 24,
@@ -111,23 +68,61 @@ export default function Loops(props: {data: tmdb.TMDBData}) {
     lineHeight: 32,
   };
 
-  let view!: ElementNode
-  return (
-    <>
-      <View ref={solidLogo} width={300} height={150} x={162} y={80} zIndex={105}>
-        <Text x={80} fontSize={28} color={0xf6f6f699}>
-          Built With:
-        </Text>
-        <View y={32} src="./assets/solidWord.png" width={280} height={52} />
-        <View x={0} y={110} src="./assets/tmdb.png" width={80} height={41} />
-        <Text x={90} y={110} contain="width" width={160} fontSize={12} color={0xf6f6f699}>
-          This product uses the TMDB API but is not endorsed or certified by TMDB.
-        </Text>
-      </View>
-      
-      <View x={160} y={300} height={300}>
-        <Text style={titleRowStyles}>Infinite Item List</Text>
-        <Show when={resetCounter()} keyed>
+  return <>
+    <View width={300} height={150} x={162} y={80} zIndex={105}>
+      <Text x={80} fontSize={28} color={0xf6f6f699}>
+        Built With:
+      </Text>
+      <View y={32} src="./assets/solidWord.png" width={280} height={52} />
+      <View x={0} y={110} src="./assets/tmdb.png" width={80} height={41} />
+      <Text x={90} y={110} contain="width" width={160} fontSize={12} color={0xf6f6f699}>
+        This product uses the TMDB API but is not endorsed or certified by TMDB.
+      </Text>
+    </View>
+    
+    <View x={160} y={300} height={300}>
+      <Text style={titleRowStyles}>Infinite Item List</Text>
+      {(() => {
+
+        resetTrack() // rerun on each reset signal change
+
+        const itemsSlice = createSlice(allItems, () => displaySize, () => bufferSize)
+
+        const [animCursor, setAnimCursor] = createSignal(0)
+        function frame() {
+          let goal = itemsSlice.cursor()
+          let curr = animCursor()
+          let next = curr + animSpeed * (goal-curr)
+          setAnimCursor(goal < curr ? Math.max(goal, next) : Math.min(goal, next))
+
+          raf = requestAnimationFrame(frame)
+        }
+        let raf = requestAnimationFrame(frame)
+        onCleanup(() => cancelAnimationFrame(raf))
+
+        function shiftLeft() {
+          let isFirst = itemsSlice.cursor() === 0
+          itemsSlice.setCursor(p => p - 1)
+          return !isFirst;
+        }
+
+        function shiftRight() {
+          itemsSlice.setCursor(p => p + 1)
+          return true;
+        }
+
+        /* Focus cursor item */
+        createEffect((prev: ElementNode | ElementText | undefined) => {
+          itemsSlice.items() // view.children has an implicit dependency on items
+          let item = view.children[Math.min(itemsSlice.cursor(), bufferSize)]
+          if (item != null && item !== prev) {
+            item.setFocus()
+          }
+          return item
+        })
+
+        let view!: ElementNode
+        return <>
           <View
             ref={view}
             onCreate={animateIn} onDestroy={animateOut}
@@ -138,18 +133,18 @@ export default function Loops(props: {data: tmdb.TMDBData}) {
             <List each={itemsSlice.items()}>
               {(item, index) => {
                 const normalIndex = () => index() - animCursor() + itemsSlice.fromIndex()
-                return (
+                return <>
                   <Poster
                     item={item()}
                     x={normalIndex() * 210}
                     alpha={Math.max(0, Math.min(1, normalIndex() + 1, displaySize - normalIndex()))}
                   />
-                );
+                </>
               }}
             </List>
           </View>
-        </Show>
-      </View>
-    </>
-  );
+        </>
+      })()}
+    </View>
+  </>
 };
