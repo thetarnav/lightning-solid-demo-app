@@ -1,5 +1,5 @@
-import { createMemo, createSignal, For, Show, Accessor, Setter, createEffect, createComputed, onCleanup } from "solid-js";
-import { ElementNode, View, Text, ElementText, AnimationSettings } from "@lightningtv/solid";
+import { createMemo, createSignal, Show, Accessor, createEffect, onCleanup, batch } from "solid-js";
+import { ElementNode, View, Text, ElementText } from "@lightningtv/solid";
 import { Poster } from "../components";
 import { setGlobalBackground } from "../state";
 import { List } from "@solid-primitives/list";
@@ -29,54 +29,54 @@ function createSlice<T>(
 }
 
 const Loops = (props: {data: tmdb.TMDBData}) => {
+
+  const displaySize = 5
+  const bufferSize  = 2 // Number of items to load ahead on each side
+  const animSpeed   = 0.16
+
   const allItems = createMemo((): Item[] => props.data.rows.map((row) => row.items()).flat())
-  const [resetCounter, setResetCounter] = createSignal(1);
-  const displaySize = 5;
-  const bufferSize = 2; // Number of items to load ahead
   const itemsSlice = createSlice(
     allItems,
     () => displaySize,
     () => bufferSize,
   )
+  
+  const [resetCounter, setResetCounter] = createSignal(1);
+  
   let solidLogo;
-
-  const speed = 0.2
-  const [animationCursor, setAnimationCursor] = createSignal(0)
-
+  
+  const [animCursor, setAnimCursor] = createSignal(0)
   function frame() {
-
-    let target = itemsSlice.cursor()
-    let current = animationCursor()
-    if (target < current) {
-      current = Math.max(target, current + speed * (target-current))
-    } else {
-      current = Math.min(target, current + speed * (target-current))
-    }
-    setAnimationCursor(current)
+    let goal = itemsSlice.cursor()
+    let curr = animCursor()
+    let next = curr + animSpeed * (goal-curr)
+    setAnimCursor(goal < curr ? Math.max(goal, next) : Math.min(goal, next))
 
     raf = requestAnimationFrame(frame)
   }
   let raf = requestAnimationFrame(frame)
   onCleanup(() => cancelAnimationFrame(raf))
 
-  function reset(_e, elm: ElementNode) {
-    setResetCounter(r => r + 1);
-    itemsSlice.setCursor(0);
-    elm.children[1].setFocus();
+  function reset() {
+    batch(() => {
+      setResetCounter(r => r + 1);
+      itemsSlice.setCursor(0);
+    })
     return true;
   }
 
-  function shiftLeft(_e, elm: ElementNode) {
-    let isLeft = itemsSlice.cursor() === 0
+  function shiftLeft() {
+    let isFirst = itemsSlice.cursor() === 0
     itemsSlice.setCursor(p => p - 1)
-    return !isLeft;
+    return !isFirst;
   }
 
-  function shiftRight(_e, elm: ElementNode) {
+  function shiftRight() {
     itemsSlice.setCursor(p => p + 1)
     return true;
   }
   
+  /* Focus cursor item */
   createEffect((prev: ElementNode | ElementText | undefined) => {
     itemsSlice.items() // view.children has an implicit dependency on items
     let item = view.children[Math.min(itemsSlice.cursor(), bufferSize)]
@@ -111,11 +111,6 @@ const Loops = (props: {data: tmdb.TMDBData}) => {
     lineHeight: 32,
   };
 
-  // x is animated with animationCursor
-  const withTransition: Record<string, boolean | AnimationSettings>
-    // = { x: { duration: 250 }, alpha: { duration: 250 } };
-    = { alpha: { duration: 250 } };
-
   let view!: ElementNode
   return (
     <>
@@ -138,17 +133,17 @@ const Loops = (props: {data: tmdb.TMDBData}) => {
             onDestroy={animateOut}
             onCreate={animateIn}
             onFocus={(elm) => elm.children[1]?.setFocus()}
-            onLeft={shiftLeft} onRight={shiftRight} onUp={reset} onDown={reset} y={55}>
+            onLeft={shiftLeft} onRight={shiftRight} onUp={reset} onDown={reset}
+            y={55}
+          >
             <List each={itemsSlice.items()}>
               {(item, index) => {
-                const isEdgeItem = () => index() < Math.min(itemsSlice.cursor(), bufferSize)
-                                                || index() >= bufferSize+displaySize
+                const normalIndex = () => index() - animCursor() + itemsSlice.fromIndex()
                 return (
                   <Poster
                     item={item()}
-                    x={(index()-(animationCursor()-itemsSlice.fromIndex())) * 210}
-                    alpha={isEdgeItem() ? 0 : 1}
-                    transition={withTransition}
+                    x={normalIndex() * 210}
+                    alpha={Math.max(0, Math.min(1, normalIndex() + 1, displaySize - normalIndex()))}
                   />
                 );
               }}
