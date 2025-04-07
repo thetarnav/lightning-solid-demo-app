@@ -5,7 +5,7 @@ import devtools from "solid-devtools/vite";
 import hexColorTransform from "@lightningtv/vite-hex-transform";
 import { configDefaults } from "vitest/config";
 
-export default defineConfig({
+export default defineConfig(config => ({
   plugins: [
     hexColorTransform(),
     devtools({
@@ -72,6 +72,7 @@ export default defineConfig({
       "@lightningtv/solid",
       "@lightningtv/solid/primitives",
     ],
+    conditions: ["@lightningtv/source", "browser", config.mode],
   },
   optimizeDeps: {
     exclude: [
@@ -92,4 +93,4 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, "packages/template/*"],
     globals: true,
   },
-});
+}));

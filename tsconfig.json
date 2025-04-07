@@ -15,6 +15,7 @@
     "paths": {
       "theme": ["./node_modules/@lightningjs/l3-ui-theme-base"],
       "@lightningjs/solid": ["./node_modules/@lightningtv/solid"]
-    }
+    },
+    "customConditions": ["@lightningtv/source"],
   }
 }
