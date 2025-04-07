@@ -34,6 +34,9 @@ function loadConfig() {
   return _get("/configuration").then((data) => {
     tmdbConfig = data;
     baseImageUrl = data.images?.secure_base_url;
+    if (import.meta.env.DEV) {
+      baseImageUrl = '/image_tmdb/'
+    }
     return data;
   });
 }

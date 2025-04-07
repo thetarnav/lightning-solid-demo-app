@@ -17,6 +17,7 @@ export default defineConfig({
         moduleName: "@lightningtv/solid",
         generate: "universal",
       },
+      hot: false,
     }),
     legacy({
       targets: ["chrome>=38"],
@@ -28,6 +29,30 @@ export default defineConfig({
         "es.global-this",
       ],
     }),
+    {
+      name: 'tmdb proxy',
+      configureServer(server) {
+        server.middlewares.use(async (req, res, next) => {
+          if (req.url != null && req.url.startsWith('/image_tmdb')) {
+            const target = 'https://image.tmdb.org/t/p/'
+            const path = req.url.slice('/image_tmdb/'.length)
+            const proxyUrl = target + path
+
+            try {
+              let response = await fetch(proxyUrl)
+              let buffer = await response.arrayBuffer()
+              res.setHeader('Content-Type', response.headers.get('Content-Type'))
+              res.end(Buffer.from(buffer))
+            } catch (err) {
+              res.statusCode = 500
+              res.end('Proxy error: ' + err.message)
+            }
+            return
+          }
+          next()
+        })
+      }
+    }
   ],
   build: {
     targets: ["chrome>=69"],

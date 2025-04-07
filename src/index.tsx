@@ -1,3 +1,6 @@
+// disable canvas api
+window.HTMLCanvasElement.prototype.getContext = () => null
+
 import { createRenderer, Config, loadFonts } from "@lightningtv/solid";
 import {
   WebGlCoreRenderer,
@@ -8,7 +11,7 @@ import {
   CanvasTextRenderer,
 } from "@lightningjs/renderer/canvas";
 
-import { Inspector } from "@lightningjs/renderer/inspector";
+// import { Inspector } from "@lightningjs/renderer/inspector";
 import { HashRouter } from "@lightningtv/solid/primitives";
 import { Route } from "@solidjs/router";
 import { lazy } from "solid-js";
@@ -81,7 +84,7 @@ Config.fontSettings.fontSize = 32;
 
 Config.rendererOptions = {
   fpsUpdateInterval: logFps ? 1000 : 0,
-  inspector: import.meta.env.DEV ? Inspector : undefined,
+  // inspector: import.meta.env.DEV ? Inspector : undefined,
   // textureMemory: {
   //   criticalThreshold: 80e6,
   // },
@@ -92,6 +95,8 @@ Config.rendererOptions = {
   devicePhysicalPixelRatio: 1,
   createImageBitmapSupport: "auto",
 };
+
+Config.domRendering = true
 
 // Ideally you'd do two separate builds for canvas and webgl to reduce bundle size.
 if (rendererMode === "canvas") {

@@ -11,7 +11,7 @@ overrides:
 
 patchedDependencies:
   '@solidjs/router':
-    hash: hnhvc47baca25dviao74hiryf4
+    hash: f7bb4a418fb6efb9a659bd0022fdb925bdd84911bd53efe26e1ba4016a1d8615
     path: patches/@solidjs__router.patch
 
 importers:
