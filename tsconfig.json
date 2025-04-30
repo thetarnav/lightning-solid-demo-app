@@ -16,6 +16,5 @@
     "paths": {
       "theme": ["./node_modules/@lightningjs/l3-ui-theme-base"],
     },
-    "customConditions": ["@lightningtv/source"],
   }
 }
