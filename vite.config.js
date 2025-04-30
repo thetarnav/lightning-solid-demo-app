@@ -7,20 +7,28 @@ import { configDefaults } from "vitest/config";
 
 export default defineConfig(config => ({
   plugins: [
-    hexColorTransform(),
+    hexColorTransform({
+      include: ["src/**/*.{ts,tsx,js,jsx}"]
+    }),
     devtools({
       /* features options - all disabled by default */
-      autoname: true, // e.g. enable autoname
+      autoname: true,
+      locator: {
+        jsxLocation: true,
+        componentLocation: true,
+        targetIDE: "vscode"
+      }
     }),
     solidPlugin({
       solid: {
         moduleName: "@lightningtv/solid",
         generate: "universal",
+        builtIns: [],
       },
       hot: false,
     }),
     legacy({
-      targets: ["chrome>=38"],
+      targets: ["chrome>=38", "not IE 11"],
       // polyfills: ["es.promise.finally", "es/map", "es/set"],
       // modernPolyfills: true,
       additionalLegacyPolyfills: ["whatwg-fetch"],
@@ -57,11 +65,11 @@ export default defineConfig(config => ({
   build: {
     targets: ["chrome>=69"],
     minify: false,
-    sourcemap: false,
+    sourcemap: false
   },
   resolve: {
     alias: {
-      theme: "@lightningjs/l3-ui-theme-base",
+      theme: "@lightningjs/l3-ui-theme-base"
     },
     dedupe: [
       "solid-js",
@@ -78,16 +86,16 @@ export default defineConfig(config => ({
     exclude: [
       "@lightningtv/solid",
       "@lightningtv/core",
-      "@lightningjs/renderer",
-    ],
+      "@lightningjs/renderer"
+    ]
   },
   server: {
     port: 5174,
     hmr: true,
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
-    },
+      "Cross-Origin-Embedder-Policy": "require-corp"
+    }
   },
   test: {
     exclude: [...configDefaults.exclude, "packages/template/*"],
