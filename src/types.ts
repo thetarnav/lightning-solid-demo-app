@@ -13,3 +13,5 @@ declare module "@lightningtv/solid" {
     href?: string;
   }
 }
+
+export {}
